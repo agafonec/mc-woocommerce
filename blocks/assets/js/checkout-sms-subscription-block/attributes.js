@@ -6,7 +6,7 @@ export default {
 		type: 'string',
 		default: '',
 	},
-	disclaimerText: {
+	smsDisclaimerText: {
 		type: 'string',
 		default: '',
 	},

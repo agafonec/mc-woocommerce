@@ -24,7 +24,7 @@ registerCheckoutBlock( {
 		<Block
 			{ ...props }
 			text={ smsSettings.smsDefaultText || '' }
-			disclaimerText={ smsSettings.smsDisclaimerText || '' }
+			smsDisclaimerText={ smsSettings.smsDisclaimerText || '' }
 			smsStatus={ smsSettings.smsStatus || 'uncheck' }
 			userSmsSubscribed={ smsSettings.userSmsSubscribed || false }
 			smsEnabled={ smsSettings.smsEnabled || false }

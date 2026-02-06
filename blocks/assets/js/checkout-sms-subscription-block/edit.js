@@ -5,46 +5,32 @@ import { __ } from '@wordpress/i18n';
 import { useBlockProps, InspectorControls } from '@wordpress/block-editor';
 import {
 	PanelBody,
-	TextControl,
-	TextareaControl,
 	SelectControl,
 	Disabled,
 } from '@wordpress/components';
 import { CheckboxControl } from '@woocommerce/blocks-checkout';
+import './style.scss';
 
 /**
  * Edit component for SMS consent block
  */
 export const Edit = ( { attributes, setAttributes } ) => {
-	const { text, disclaimerText, smsStatus } = attributes;
+	const { text, smsDisclaimerText, smsStatus } = attributes;
 	const blockProps = useBlockProps();
 
 	const defaultText = __( 'Text me with news and offers', 'mailchimp-for-woocommerce' );
-	const defaultDisclaimer = __( 'By providing your phone number, you agree to receive promotional and marketing messages...', 'mailchimp-for-woocommerce' );
+	const defaultDisclaimer = __( 'By providing your phone number, you agree to receive promotional and marketing messages, notifications, and customer service communications. Message & data rates may apply. Consent is not a condition of purchase. Message frequency may vary. You can unsubscribe at any time by replying STOP.', 'mailchimp-for-woocommerce' );
 
 	return (
 		<div { ...blockProps }>
 			<InspectorControls>
 				<PanelBody title={ __( 'SMS Consent Settings', 'mailchimp-for-woocommerce' ) }>
-					<TextControl
-						label={ __( 'Checkbox Label', 'mailchimp-for-woocommerce' ) }
-						value={ text }
-						onChange={ ( value ) => setAttributes( { text: value } ) }
-						placeholder={ defaultText }
-					/>
-					<TextareaControl
-						label={ __( 'Disclaimer Text', 'mailchimp-for-woocommerce' ) }
-						value={ disclaimerText }
-						onChange={ ( value ) => setAttributes( { disclaimerText: value } ) }
-						placeholder={ defaultDisclaimer }
-					/>
 					<SelectControl
 						label={ __( 'Default Checkbox State', 'mailchimp-for-woocommerce' ) }
 						value={ smsStatus }
 						options={ [
 							{ label: __( 'Checked by default', 'mailchimp-for-woocommerce' ), value: 'check' },
 							{ label: __( 'Unchecked by default', 'mailchimp-for-woocommerce' ), value: 'uncheck' },
-							{ label: __( 'Hidden', 'mailchimp-for-woocommerce' ), value: 'hide' },
 						] }
 						onChange={ ( value ) => setAttributes( { smsStatus: value } ) }
 					/>
@@ -72,7 +58,7 @@ export const Edit = ( { attributes, setAttributes } ) => {
 									{ __( 'SMS Phone Number', 'mailchimp-for-woocommerce' ) }
 								</div>
 								<p style={{ fontSize: '12px', color: '#666', marginTop: '8px' }}>
-									{ disclaimerText || defaultDisclaimer }
+									{ smsDisclaimerText || defaultDisclaimer }
 								</p>
 							</div>
 						) }

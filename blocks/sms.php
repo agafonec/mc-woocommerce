@@ -12,6 +12,9 @@ add_action( 'woocommerce_blocks_loaded', function() {
 
     // Check if SMS is enabled
     $options = \Mailchimp_Woocommerce_DB_Helpers::get_option('mailchimp-woocommerce');
+    mailchimp_log('sms_enabled', 'data', [
+        'data' => $options
+    ]);
     if (empty($options['mailchimp_sms_enabled'])) {
         return;
     }

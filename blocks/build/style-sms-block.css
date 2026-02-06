@@ -1,0 +1,38 @@
+/*!*****************************************************************************************************************************************************************************************************************************************************************************!*\
+  !*** css ./node_modules/css-loader/dist/cjs.js??ruleSet[1].rules[4].use[1]!./node_modules/postcss-loader/dist/cjs.js??ruleSet[1].rules[4].use[2]!./node_modules/sass-loader/dist/cjs.js??ruleSet[1].rules[4].use[3]!./assets/js/checkout-sms-subscription-block/style.scss ***!
+  \*****************************************************************************************************************************************************************************************************************************************************************************/
+.mailchimp-sms-consent {
+  margin-top: 16px;
+}
+.mailchimp-sms-consent .mailchimp-sms-phone-field {
+  margin-top: 12px;
+  margin-left: 28px;
+}
+.mailchimp-sms-consent .mailchimp-sms-phone-field input[type=tel] {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+}
+.mailchimp-sms-consent .mailchimp-sms-phone-field input[type=tel]:focus {
+  border-color: #874FB9;
+  outline: none;
+  box-shadow: 0 0 0 1px #874FB9;
+}
+.mailchimp-sms-consent .mailchimp-sms-phone-field input[type=tel].has-error {
+  border-color: #cc1818;
+}
+.mailchimp-sms-consent .mailchimp-sms-phone-field .mailchimp-sms-disclaimer {
+  font-size: 12px;
+  color: #666;
+  margin-top: 8px;
+  line-height: 1.4;
+}
+.mailchimp-sms-consent .mailchimp-sms-phone-field .wc-block-components-validation-error {
+  color: #cc1818;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+/*# sourceMappingURL=style-sms-block.css.map*/

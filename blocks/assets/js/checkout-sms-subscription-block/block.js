@@ -10,8 +10,8 @@ import { __ } from '@wordpress/i18n';
  * SMS Consent Block Component
  */
 const Block = ( { 
-	text, 
-	disclaimerText, 
+	text,
+	smsDisclaimerText,
 	smsStatus, 
 	userSmsSubscribed, 
 	smsEnabled,
@@ -92,13 +92,13 @@ const Block = ( {
 
 	// Default label text
 	const labelText = text || __( 'Text me with news and offers', 'mailchimp-for-woocommerce' );
-	
+
 	// Default disclaimer text with audience name placeholder
-	const defaultDisclaimer = audienceName 
+	const defaultDisclaimer = audienceName
 		? `${audienceName} – ` + __( 'By providing your phone number, you agree to receive promotional and marketing messages, notifications, and customer service communications. Message & data rates may apply. Consent is not a condition of purchase. Message frequency may vary. You can unsubscribe at any time by replying STOP.', 'mailchimp-for-woocommerce' )
 		: __( 'By providing your phone number, you agree to receive promotional and marketing messages, notifications, and customer service communications. Message & data rates may apply. Consent is not a condition of purchase. Message frequency may vary. You can unsubscribe at any time by replying STOP.', 'mailchimp-for-woocommerce' );
-	
-	const disclaimer = disclaimerText || defaultDisclaimer;
+
+	const disclaimer = smsDisclaimerText || defaultDisclaimer;
 
 	return (
 		<div className="wc-block-components-checkout-step__container mailchimp-sms-consent">

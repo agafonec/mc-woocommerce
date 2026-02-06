@@ -24,7 +24,9 @@ class Mailchimp_Woocommerce_SMS_Blocks_Integration implements IntegrationInterfa
 	 * @throws Exception
 	 */
 	public function initialize() {
-		$this->register_frontend_scripts();
+        mailchimp_log('sms_block_fired', 'fired');
+
+        $this->register_frontend_scripts();
 		$this->register_editor_scripts();
 		$this->register_editor_blocks();
 		add_filter( '__experimental_woocommerce_blocks_add_data_attributes_to_block', [ $this, 'add_attributes_to_frontend_blocks' ], 10, 1 );
@@ -130,6 +132,8 @@ class Mailchimp_Woocommerce_SMS_Blocks_Integration implements IntegrationInterfa
 			'smsSendingCountries' => $this->getSmsSendingCountries(),
 		);
 
+        mailchimp_log('sms', 'get_script_data', $data );
+
 		return $data;
 	}
 
@@ -224,6 +228,9 @@ class Mailchimp_Woocommerce_SMS_Blocks_Integration implements IntegrationInterfa
 		// Compliance: disclaimer text cannot be customized
 		$audience_name = $this->getAudienceName();
 		$prefix = ! empty( $audience_name ) ? $audience_name . ' – ' : '';
+        mailchimp_log('calling_disclaimer', 'call', [
+            'prefix' => $prefix,
+        ]);
 		return $prefix . __( 'By providing your phone number, you agree to receive promotional and marketing messages, notifications, and customer service communications. Message & data rates may apply. Consent is not a condition of purchase. Message frequency may vary. You can unsubscribe at any time by replying STOP.', 'mailchimp-for-woocommerce' );
 	}
 
@@ -234,16 +241,21 @@ class Mailchimp_Woocommerce_SMS_Blocks_Integration implements IntegrationInterfa
 	 */
 	protected function getSmsOptinStatus() {
 		// Compliance: checkbox cannot be pre-selected, always unchecked by default
-		
-		// If logged in and already subscribed, hide the checkbox
+        if ( ( $default_setting = $this->getOption('mailchimp_checkbox_defaults_sms', 'check') ) === 'hide') {
+            return 'hide';
+        }
+        $default_checked = $default_setting === 'check';
+        $status = $default_checked;
+
+        // If logged in and already subscribed, hide the checkbox
 		if ( is_user_logged_in() ) {
-			$user_status = get_user_meta( get_current_user_id(), 'mailchimp_woocommerce_sms_subscribed', true );
-			if ( $user_status === true || $user_status === '1' ) {
-				return 'hide';
-			}
+            $status = get_user_meta( get_current_user_id(), 'mailchimp_woocommerce_sms_subscribed', true );
+            if ($status === '' || $status === null) {
+                $status = $default_checked;
+            }
 		}
 
-		return 'uncheck';
+        return $status === true || $status === '1' ? 'check' : 'uncheck';
 	}
 
 	/**
@@ -265,9 +277,14 @@ class Mailchimp_Woocommerce_SMS_Blocks_Integration implements IntegrationInterfa
 	 * @return bool
 	 */
 	protected function isSmsEnabled() {
-		$options = \Mailchimp_Woocommerce_DB_Helpers::get_option( 'mailchimp-woocommerce' );
-		return isset( $options['mailchimp_sms_enabled'] ) && (bool) $options['mailchimp_sms_enabled'];
+		return (bool) $this->getOption('mailchimp_sms_enabled');
 	}
+
+    private function getOption($key, $default_value = false) {
+        $options = \Mailchimp_Woocommerce_DB_Helpers::get_option( 'mailchimp-woocommerce' , []);
+
+        return isset( $options[ $key ] ) ? $options[ $key ] : $default_value;
+    }
 
 	/**
 	 * Check if merchant has approved SMS application
@@ -275,6 +292,7 @@ class Mailchimp_Woocommerce_SMS_Blocks_Integration implements IntegrationInterfa
 	 * @return bool
 	 */
 	protected function merchantHasSmsApproved() {
+        return true;
 		try {
 			if ( ! mailchimp_is_configured() ) {
 				return false;

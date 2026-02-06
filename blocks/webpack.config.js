@@ -29,6 +29,9 @@ module.exports = {
 	entry: {
 		'newsletter-block': path.resolve( process.cwd(), 'assets', 'js', 'checkout-newsletter-subscription-block', 'index.js' ),
 		'newsletter-block-frontend': path.resolve( process.cwd(), 'assets', 'js', 'checkout-newsletter-subscription-block', 'frontend.js' ),
+
+		'sms-block': path.resolve( process.cwd(), 'assets', 'js', 'checkout-sms-subscription-block', 'index.js' ),
+		'sms-block-frontend': path.resolve( process.cwd(), 'assets', 'js', 'checkout-sms-subscription-block', 'frontend.js' ),
 	},
 	plugins: [
 		...defaultConfig.plugins.filter(
