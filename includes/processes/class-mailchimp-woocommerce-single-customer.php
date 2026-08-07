@@ -4,11 +4,24 @@ class MailChimp_Woocommerce_Single_Customer extends Mailchimp_Woocommerce_Job
 {
     public $customer_data;
     public $id;
+    public $is_full_sync = false;
 
     public function __construct($customer_lookup)
     {
         $this->customer_data = $customer_lookup;
         $this->id = $this->customer_data->customer_id;
+    }
+
+    /**
+     * @param $is_full_sync
+     *
+     * @return $this
+     */
+    public function set_full_sync($is_full_sync)
+    {
+        $this->is_full_sync = $is_full_sync;
+
+        return $this;
     }
 
     public function handle()
@@ -28,6 +41,9 @@ class MailChimp_Woocommerce_Single_Customer extends Mailchimp_Woocommerce_Job
             mailchimp_debug(get_called_class(), 'Mailchimp is not configured properly');
             return false;
         }
+
+        // make sure we tell the system this is a sync job and not a live job
+        $api->setIsSyncing($this->is_full_sync);
 
         $email = $this->customer_data->email;
 

@@ -11,6 +11,7 @@ class MailChimp_WooCommerce_MailChimpApi {
 	protected $auth_type   = 'key';
     protected $allow_audience_put = true;
     protected $auto_doi = false;
+    protected $is_syncing = null;
 
 	/** @var null|MailChimp_WooCommerce_MailChimpApi */
 	protected static $instance = null;
@@ -42,6 +43,17 @@ class MailChimp_WooCommerce_MailChimpApi {
 		}
 	}
 
+    public function setIsSyncing($bool = true)
+    {
+        $this->is_syncing = (bool) $bool;
+        return $this;
+    }
+
+    public function isSyncing()
+    {
+        return $this->is_syncing;
+    }
+
     /**
      * @param $bool
      * @return $this
@@ -68,7 +80,7 @@ class MailChimp_WooCommerce_MailChimpApi {
 	 * @return $this
 	 */
 	public function setApiKey( $key ) {
-		$parts = str_getcsv( $key, '-' );
+		$parts = str_getcsv( $key, '-' , '"', '');
 
 		if ( count( $parts ) == 2 ) {
 			$this->data_center = $parts[1];
@@ -720,7 +732,9 @@ class MailChimp_WooCommerce_MailChimpApi {
             'sms_phone' => $sms_phone,
             'marketing_consent' => array(
                 'status' => $subscribed ? 'confirmed' : 'pending',
-                'source' => 'Mailchimp for Woocommerce',
+                'source' => array(
+                    'name' => 'Mailchimp for Woocommerce',
+                ),
             ),
         );
 
@@ -756,7 +770,9 @@ class MailChimp_WooCommerce_MailChimpApi {
                 'email' => $email,
                 'marketing_consent' => [
                     'status' => $email_subscribed ? 'confirmed' : 'unknown',
-                    'source' => 'Mailchimp for Woocommerce',
+                    'source' => array(
+                        'name' => 'Mailchimp for Woocommerce',
+                    ),
                 ]
             ],
             'sms_channel' => $sms_channel,
@@ -816,7 +832,9 @@ class MailChimp_WooCommerce_MailChimpApi {
             'sms_phone' => $sms_phone,
             'marketing_consent' => array(
                 'status' => $subscribed ? 'confirmed' : 'unsubscribed',
-                'source' => 'Mailchimp for Woocommerce',
+                'source' => array(
+                    'name' => 'Mailchimp for Woocommerce',
+                ),
             ),
         );
 
@@ -1024,7 +1042,7 @@ class MailChimp_WooCommerce_MailChimpApi {
             // Try to get SMS settings for the audience
             $result = $this->get( "lists/{$list_id}/sms-program" );
 
-            if ( isset( $result['sms_enabled'] ) && $result['sms_enabled'] ) {
+            if (!empty($result['sms_program'][0]['can_send'])) {
                 return array(
                     'enabled' => true,
                     'sending_countries' => isset( $result['sending_countries'] ) ? $result['sending_countries'] : array(),
@@ -1047,10 +1065,10 @@ class MailChimp_WooCommerce_MailChimpApi {
      */
     public function getCachedSmsApplicationStatus( $list_id ) {
         $transient_key = "mailchimp_sms_status_{$list_id}";
-        $cached = mailchimp_get_transient( $transient_key );
+        $cached = mailchimp_get_transient( $transient_key, false );
 
         if ( $cached !== false ) {
-            return $cached;
+            return $cached['value'];
         }
 
         try {
@@ -1062,7 +1080,6 @@ class MailChimp_WooCommerce_MailChimpApi {
             return false;
         }
     }
-
     /**
      * Check if a country is in the merchant's SMS sending countries
      *
@@ -2618,6 +2635,9 @@ class MailChimp_WooCommerce_MailChimpApi {
 			return $GDPRfields;
 		}
 
+        $filteredMinutes = (int) apply_filters('mailchimp_checkout_overwrite_gdpr_cache_minutes', $minutes);
+        $minutes = $filteredMinutes <= 0 ? $minutes : $filteredMinutes;
+
 		try {
 			$GDPRfields = $this->getGDPRFields( $list_id );
 			set_transient( $transient, $GDPRfields, 60 * $minutes );
@@ -3136,7 +3156,7 @@ class MailChimp_WooCommerce_MailChimpApi {
             $headers
         );
 
-        if ($env->initial_sync) {
+        if ($this->is_syncing) {
             $headers[] = 'X-Data-Mode: historical';
         }
 

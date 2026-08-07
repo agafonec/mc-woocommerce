@@ -135,7 +135,7 @@ function mailchimp_environment_variables($refresh = false) {
     $cached = (object) array(
         'repo' => 'master',
         'environment' => 'production', // staging or production
-        'version' => '6.1.1',
+        'version' => '6.2',
         'php_version' => phpversion(),
         'wp_version' => (empty($wp_version) ? 'Unknown' : $wp_version),
         'wc_version' => function_exists('WC') ? WC()->version : null,
@@ -1596,7 +1596,7 @@ function mailchimp_hash_trim_lower($str) {
  */
 function mailchimp_get_wc_customer($email) {
     global $wpdb;
-    return $wpdb->get_row( "SELECT * FROM `{$wpdb->prefix}wc_customer_lookup` WHERE `email` = '{$email}'" );
+    return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM `{$wpdb->prefix}wc_customer_lookup` WHERE `email` = %s", $email ) );
 }
 
 /**
@@ -2048,7 +2048,8 @@ function mailchimp_member_data_update($user_email = null, $language = null, $cal
  *
  * @return bool
  */
-function mailchimp_sms_consent_enabled() {
+function mailchimp_sms_consent_active()
+{
     if (!MailChimp_Sms_Consent::isEligibleCountry()) {
         return false;
     }
@@ -2059,14 +2060,24 @@ function mailchimp_sms_consent_enabled() {
         return false;
     }
 
-    // Classic checkout path — admin toggled the option on.
+    return true;
+}
+
+function mailchimp_sms_consent_enabled_in_classic_checkout()
+{
     $options = mailchimp_get_admin_options();
     if (!empty($options['mailchimp_sms_consent_enabled'])) {
         return true;
     }
 
+    return false;
+}
+
+function mailchimp_sms_consent_enabled() {
+    // Classic checkout path — admin toggled the option on.
+
     // Block checkout path — check the block's "usingSmsConsent" attribute.
-    return mailchimp_sms_block_enabled_in_checkout();
+    return mailchimp_sms_consent_active() && (mailchimp_sms_block_enabled_in_checkout() || mailchimp_sms_consent_enabled_in_classic_checkout());
 }
 
 /**

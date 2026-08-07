@@ -1,4 +1,14 @@
 == Changelog ==
+= 6.2 =
+* Adds support for custom order types registered via wc_register_order_type (HPOS)
+* Adds editable checkbox label for mailchimp_woocommerce_newsletter_field
+* Adds loader UI for OAuth page
+* Caches GDPR API data
+* Optimizes CSS enqueuing to avoid wasteful loading
+* Fixes issue where admin-created customers overwrite Mailchimp contact subscription status
+* Fixes issue where API traffic is logged as historical-sync data after first sync begins
+* Fixes issue where deleted carts trigger Abandoned Cart emails and cart resurrection
+* Blocks dependency updates
 = 6.1.1 =
 * Rest api updates
 = 6.1 =

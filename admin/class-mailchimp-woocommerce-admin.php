@@ -132,13 +132,13 @@ class MailChimp_WooCommerce_Admin extends MailChimp_WooCommerce_Options {
 	 * @since    1.0.0
 	 */
 	public function enqueue_styles( $hook ) {
-		wp_enqueue_style( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'css/mailchimp-woocommerce-admin.css', array(), $this->version . '.21' );
+		wp_enqueue_style( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'css/mailchimp-woocommerce-admin.css', array(), $this->version );
 
 		if ( strpos( $hook, 'page_mailchimp-woocommerce' ) !== false || strpos( $hook, 'create-mailchimp-account' ) !== false) {
 			if ( get_bloginfo( 'version' ) < '5.3' ) {
 				wp_enqueue_style( $this->plugin_name . '-settings', plugin_dir_url( __FILE__ ) . 'css/mailchimp-woocommerce-admin-settings-5.2.css', array(), $this->version );
 			}
-			wp_enqueue_style( $this->plugin_name . '-settings', plugin_dir_url( __FILE__ ) . 'css/mailchimp-woocommerce-admin-settings.css', array(), $this->version . '.01' );
+			wp_enqueue_style( $this->plugin_name . '-settings', plugin_dir_url( __FILE__ ) . 'css/mailchimp-woocommerce-admin-settings.css', array(), $this->version );
 			// Update v2
 			wp_enqueue_style( $this->plugin_name . '-settings-v2', plugin_dir_url( __FILE__ ) . 'v2/assets/css/styles.css', array(), $this->version);
 			// End update v2
@@ -573,6 +573,18 @@ class MailChimp_WooCommerce_Admin extends MailChimp_WooCommerce_Options {
             // we have some stores that are in a perpetual state of syncing - causing issues with support.
             // trying to adjust things on plugin update
 			//$this->fix_is_syncing_problem();
+
+			// Stores that completed a sync on older versions can still carry a
+			// stale sync.initial_sync flag, which makes every API call send
+			// X-Data-Mode: historical — live orders get treated as historical
+			// data. Only safe to clear when no sync is running; an in-flight
+			// initial sync legitimately needs the flag.
+			if ( ! (bool) mailchimp_get_data( 'sync.syncing' ) ) {
+				\Mailchimp_Woocommerce_DB_Helpers::delete_option( 'mailchimp-woocommerce-sync.initial_sync' );
+				// rebuild the per-request env snapshot so the rest of this
+				// request stops sending the historical header immediately.
+				mailchimp_environment_variables( true );
+			}
 		}
 
 		// Carts-table one-time cleanup: add PRIMARY KEY on email column and

@@ -99,6 +99,9 @@ class MailChimp_WooCommerce_Single_Order extends Mailchimp_Woocommerce_Job
             return false;
         }
 
+        // make sure we tell the system this is a sync job and not a live job
+        $api->setIsSyncing($this->is_full_sync);
+
         $store_id = mailchimp_get_store_id();
 
         // this will set the woo_order variable or return false.

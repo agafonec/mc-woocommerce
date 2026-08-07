@@ -16,6 +16,7 @@ class MailChimp_Service extends MailChimp_WooCommerce_Options
     protected $cart_subscribe = null;
     protected $force_cart_post = false;
     protected $cart_was_submitted = false;
+    protected $cart_was_deleted = false;
     protected $cart = array();
     protected $validated_cart_db = false;
     // this is used during rest api requests to force the user update through the is_admin function
@@ -193,7 +194,110 @@ class MailChimp_Service extends MailChimp_WooCommerce_Options
     {
         if ($user_email = $this->getCurrentUserEmail()) {
             $this->deleteCart(mailchimp_hash_trim_lower($user_email));
+            $this->cart_was_deleted = true;
         }
+    }
+
+	/**
+	 * Fired on woocommerce_cart_item_removed.
+	 *
+	 * WooCommerce fires this before WC_Cart::calculate_totals() (priority 20) has run, and the
+	 * session copy of the cart is only rewritten by WC_Cart_Session::set_session() on
+	 * woocommerce_after_calculate_totals. Reading the session here would hand us the pre-removal
+	 * contents, so removing the last item looked like a normal update and the cart got deleted
+	 * and immediately re-added in Mailchimp. Read the live cart object instead.
+	 *
+	 * @param null $cart_item_key
+	 *
+	 * @return bool|mixed|null
+	 * @throws MailChimp_WooCommerce_Error
+	 * @throws MailChimp_WooCommerce_RateLimitError
+	 * @throws MailChimp_WooCommerce_ServerError
+	 */
+    public function handleCartItemRemoved($cart_item_key = null)
+    {
+        $cart = $this->getCartItems(true);
+
+        // if we couldn't read the live cart don't guess, and definitely don't delete anything.
+        if (!is_array($cart)) {
+            return false;
+        }
+
+        $this->cart = $cart;
+
+        if (empty($cart)) {
+            return $this->handleCartEmptied();
+        }
+
+        return $this->handleCartUpdated();
+    }
+
+	/**
+	 * Fired on woocommerce_cart_emptied, and from handleCartItemRemoved() when the last item goes.
+	 *
+	 * Nothing else was listening for this, so an "empty cart" action left the abandoned cart sitting
+	 * in Mailchimp and the shopper kept getting "you left something behind" emails.
+	 *
+	 * Careful with $clear_persistent_cart: WooCommerce also empties the cart on logout and when it
+	 * throws away an invalid session cookie (WC_Session_Handler::forget_session), and those go
+	 * through wc_empty_cart() which passes false so the persistent cart in usermeta survives. That
+	 * shopper has not abandoned anything, so we leave their Mailchimp cart alone. A real empty -
+	 * the Store API "remove all items" route, a post-payment clear, or an empty-cart plugin calling
+	 * WC()->cart->empty_cart() - passes true.
+	 *
+	 * @param bool $clear_persistent_cart
+	 *
+	 * @return bool
+	 * @throws MailChimp_WooCommerce_Error
+	 * @throws MailChimp_WooCommerce_RateLimitError
+	 * @throws MailChimp_WooCommerce_ServerError
+	 */
+    public function handleCartEmptied($clear_persistent_cart = true)
+    {
+        if (mailchimp_carts_disabled() || $this->is_admin || !mailchimp_is_configured()) {
+            return false;
+        }
+
+        // logout / session teardown - not an abandoned cart.
+        if (!$clear_persistent_cart || doing_action('wp_logout')) {
+            return false;
+        }
+
+        // the order flow already tears the cart down (onNewOrder + the Single_Order job), and
+        // WC_Checkout empties the cart right after, so don't pay for a second delete at checkout.
+        if ($this->cart_was_deleted) {
+            return false;
+        }
+
+        if (!($user_email = $this->getCurrentUserEmail())) {
+            return false;
+        }
+
+        if (mailchimp_email_is_privacy_protected($user_email)) {
+            return false;
+        }
+
+        $uid = mailchimp_hash_trim_lower($user_email);
+
+        // trackCart() writes the local row every time we post a cart, so no row means there is
+        // nothing in Mailchimp to delete. wc_clear_cart_after_payment() empties the cart on every
+        // single order-received page load, so without this we would fire a DELETE on each refresh.
+        if ($this->validated_cart_db && !$this->getCart($uid)) {
+            return false;
+        }
+
+        $this->cart = array();
+        $this->cart_was_deleted = true;
+
+        // drop the local row too, otherwise a later ?mc_cart_id= click re-hydrates the emptied
+        // cart into the woo session and pushes it straight back up to Mailchimp.
+        $this->deleteCart($uid);
+
+        if ($this->api()->deleteCartByID($this->getUniqueStoreID(), $uid)) {
+            mailchimp_log('ac.cart_emptied', "Deleted cart [$user_email] :: ID [$uid]");
+        }
+
+        return true;
     }
 
 	/**
@@ -284,6 +388,11 @@ class MailChimp_Service extends MailChimp_WooCommerce_Options
                 $handler->setStatus($this->cart_subscribe);
                 $handler->prepend_to_queue = true;
                 mailchimp_handle_or_queue($handler);
+            } else {
+                // the cart is empty - the remote delete above already ran, but the local row has to
+                // go as well or a ?mc_cart_id= click will re-hydrate the emptied cart and re-post it.
+                $this->deleteCart($uid);
+                $this->cart_was_deleted = true;
             }
 
             return !is_null($updated) ? $updated : true;
@@ -736,7 +845,18 @@ class MailChimp_Service extends MailChimp_WooCommerce_Options
     {
         if (!mailchimp_is_configured()) return;
 
-        $subscribed = (bool) isset($_POST['mailchimp_woocommerce_newsletter']) && $_POST['mailchimp_woocommerce_newsletter'];
+
+        if (isset($_POST['mailchimp_woocommerce_newsletter'])) {
+            $subscribed = (bool)isset($_POST['mailchimp_woocommerce_newsletter']) && $_POST['mailchimp_woocommerce_newsletter'];
+        } else {
+            // if no status posted, get the status from existing MC users
+            $user = new WP_User($user_id);
+            $email = $user->user_email;
+
+            $status = mailchimp_get_subscriber_status($email);
+
+            $subscribed = $status === 'subscribed';
+        }
 
         if (isset($_POST['mailchimp_woocommerce_newsletter']) && $_POST['mailchimp_woocommerce_newsletter']) {
             $gdpr_fields = isset($_POST['mailchimp_woocommerce_gdpr']) ?
@@ -833,10 +953,26 @@ class MailChimp_Service extends MailChimp_WooCommerce_Options
     }
 
     /**
+     * @param bool $force_live read straight from the live WC_Cart object instead of the session copy.
+     *                         WooCommerce only writes the session copy on woocommerce_after_calculate_totals,
+     *                         so during woocommerce_cart_item_removed the session still holds the
+     *                         pre-removal contents and would make an emptied cart look populated.
      * @return bool|array
      */
-    public function getCartItems()
+    public function getCartItems($force_live = false)
     {
+        if ($force_live) {
+            if (!function_exists('WC') || !($woo = WC()) || !$woo->cart) {
+                return $this->cart = false;
+            }
+            $cart_session = array();
+            foreach ($woo->cart->get_cart() as $key => $values) {
+                $cart_session[$key] = $values;
+                unset($cart_session[$key]['data']); // Unset product object
+            }
+            return $this->cart = $cart_session;
+        }
+
         if (!($this->cart = $this->getWooSession('cart', false))) {
 			if (!function_exists('WC')) {
 				$this->cart = false;
