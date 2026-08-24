@@ -528,7 +528,11 @@ class MailChimp_WooCommerce_Pixel_Tracking
      */
     protected function get_formatted_product($product, $quantity = null)
     {
-        $parent_id = $product->get_parent_id();
+        // Only variations roll up to a parent. Other product types can carry a
+        // non-zero post_parent (legacy grouped children, some bundle/composite
+        // plugins) but the catalog syncs them under their OWN id, so treating
+        // that parent as the productId would point at a product with no such variant.
+        $parent_id = $this->get_parent_product_id($product);
         $image_id  = $product->get_image_id();
 
         $formatted = array(
@@ -539,7 +543,11 @@ class MailChimp_WooCommerce_Pixel_Tracking
             'currency'   => get_woocommerce_currency(),
             'sku'        => $product->get_sku() ? $product->get_sku() : '',
             'imageUrl'   => $image_id ? wp_get_attachment_url($image_id) : '',
-            'productUrl' => get_permalink($product->get_id()),
+            // Must be the product object's own method, not get_permalink($id):
+            // product_variation is registered public=false/rewrite=false, so the
+            // global function returns a URL that 404s. WC_Product_Variation
+            // overrides this to return the parent permalink + attribute args.
+            'productUrl' => $product->get_permalink(),
             'vendor'     => '',
             'categories' => $this->get_product_categories($product),
         );
@@ -552,6 +560,24 @@ class MailChimp_WooCommerce_Pixel_Tracking
     }
 
     /**
+     * Resolve the catalog parent id for a product.
+     *
+     * Returns 0 for anything that is not a variation, so only true variations
+     * report a parent productId to the pixel.
+     *
+     * @param  WC_Product $product Product object
+     * @return int Parent product ID, or 0 when the product is its own parent
+     */
+    protected function get_parent_product_id($product)
+    {
+        if (! is_callable(array($product, 'is_type')) || ! $product->is_type('variation')) {
+            return 0;
+        }
+
+        return (int) $product->get_parent_id();
+    }
+
+    /**
      * Get product categories
      *
      * @param  WC_Product $product Product object
@@ -559,7 +585,8 @@ class MailChimp_WooCommerce_Pixel_Tracking
      */
     protected function get_product_categories($product)
     {
-        $product_id = $product->get_parent_id() ? $product->get_parent_id() : $product->get_id();
+        $parent_id  = $this->get_parent_product_id($product);
+        $product_id = $parent_id ? $parent_id : $product->get_id();
         $terms      = get_the_terms($product_id, 'product_cat');
 
         if (! $terms || is_wp_error($terms)) {
@@ -688,6 +715,38 @@ class MailChimp_WooCommerce_Pixel_Tracking
     }
 
     /**
+     * Build a variation ID => parent product ID lookup for the current cart.
+     *
+     * The WooCommerce Blocks Store API cart item schema exposes no parent
+     * product id (CartItemSchema sets 'id' => $product->get_id(), which is the
+     * variation id for variable products), so the block JS cannot resolve the
+     * parent on its own. We hand it a map built from the cart as it stands at
+     * render time, which covers remove-from-cart and block checkout line items.
+     * Add-to-cart is covered separately: the Store API product response does
+     * carry 'parent'.
+     *
+     * @return array Map of variation ID => parent product ID, both as strings
+     */
+    protected function get_variation_parent_map()
+    {
+        $map = array();
+
+        if (! WC()->cart) {
+            return $map;
+        }
+
+        foreach (WC()->cart->get_cart() as $cart_item) {
+            $variation_id = (int) ($cart_item['variation_id'] ?? 0);
+            $product_id   = (int) ($cart_item['product_id'] ?? 0);
+            if ($variation_id && $product_id && $variation_id !== $product_id) {
+                $map[(string) $variation_id] = (string) $product_id;
+            }
+        }
+
+        return $map;
+    }
+
+    /**
      * Get cart ID from WooCommerce session
      *
      * @return string Cart ID
@@ -756,6 +815,7 @@ class MailChimp_WooCommerce_Pixel_Tracking
         window.mcPixel = window.mcPixel || {};
         window.mcPixel._handled = {};
         window.mcPixel.cartId = '<?php echo esc_js($this->get_cart_id()); ?>';
+        window.mcPixel.parentMap = <?php echo wp_json_encode((object) $this->get_variation_parent_map(), JSON_HEX_TAG | JSON_UNESCAPED_SLASHES); ?>;
         <?php if (! empty($this->script_data)) : ?>
         window.mcPixel.data = <?php echo $this->get_script_data(); ?>;
         <?php endif; ?>

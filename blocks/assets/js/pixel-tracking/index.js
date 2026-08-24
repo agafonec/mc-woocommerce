@@ -83,6 +83,37 @@ function getCartId() {
 }
 
 /**
+ * Look up the parent product id for a variation id.
+ *
+ * The map is seeded by PHP from the current cart (window.mcPixel.parentMap) and
+ * extended at runtime whenever we see a Store API product response, which does
+ * carry a `parent` field. Cart item responses do not, hence the lookup.
+ *
+ * @param {string|number} id Variation (or product) id
+ * @return {string} Parent product id, or '' when there is no known parent
+ */
+function getParentId( id ) {
+	const map = ( window.mcPixel && window.mcPixel.parentMap ) || {};
+	return map[ String( id ) ] || '';
+}
+
+/**
+ * Record a variation => parent mapping so later cart events can resolve it.
+ *
+ * @param {string|number} id       Variation id
+ * @param {string|number} parentId Parent product id
+ */
+function rememberParentId( id, parentId ) {
+	if ( ! window.mcPixel || ! parentId || String( parentId ) === String( id ) ) {
+		return;
+	}
+	if ( ! window.mcPixel.parentMap ) {
+		window.mcPixel.parentMap = {};
+	}
+	window.mcPixel.parentMap[ String( id ) ] = String( parentId );
+}
+
+/**
  * Track an event via the Pixel SDK.
  *
  * @param {string} eventName Event name
@@ -118,9 +149,15 @@ function formatBlockProduct( product ) {
 	const divisor = Math.pow( 10, currencyMinorUnit );
 	const price = prices.price ? parseInt( prices.price, 10 ) / divisor : 0;
 
+	// ProductSchema exposes `parent` (the parent product id) for variations.
+	// Cache it so cart items — whose schema has no parent — can resolve later.
+	const id = String( product.id );
+	const parentId = product.parent ? String( product.parent ) : '';
+	rememberParentId( id, parentId );
+
 	return {
-		id: String( product.id ),
-		productId: String( product.id ),
+		id: id,
+		productId: parentId || id,
 		title: product.name || '',
 		price: price,
 		currency: ( prices.currency_code || '' ).toUpperCase(),
@@ -150,9 +187,13 @@ function formatCartItem( cartItem ) {
 	const divisor = Math.pow( 10, currencyMinorUnit );
 	const price = prices.price ? parseInt( prices.price, 10 ) / divisor : 0;
 
+	// CartItemSchema has no parent product id — `id` is the variation id for
+	// variable products — so fall back to the map PHP seeded from the cart.
+	const id = String( cartItem.id );
+
 	return {
-		id: String( cartItem.id ),
-		productId: String( cartItem.id ),
+		id: id,
+		productId: getParentId( id ) || id,
 		title: cartItem.name || '',
 		price: price,
 		currency: ( prices.currency_code || '' ).toUpperCase(),

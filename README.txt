@@ -78,13 +78,5 @@ At this time, the synchronization of product categories from WooCommerce to Mail
 If you are unable to sync or connect with Mailchimp, you can open a ticket on our [Github plugin page](https://github.com/mailchimp/mc-woocommerce/issues). Please provide the version of the plugin and PHP you're using, any fatal errors in the WooCommerce logs (WooCommerce -> Status -> Logs) you're seeing, along with relevant information to the problem you're experiencing.
 
 == Changelog ==
-= 6.2 =
-* Adds support for custom order types registered via wc_register_order_type (HPOS)
-* Adds editable checkbox label for mailchimp_woocommerce_newsletter_field
-* Adds loader UI for OAuth page
-* Caches GDPR API data
-* Optimizes CSS enqueuing to avoid wasteful loading
-* Fixes issue where admin-created customers overwrite Mailchimp contact subscription status
-* Fixes issue where API traffic is logged as historical-sync data after first sync begins
-* Fixes issue where deleted carts trigger Abandoned Cart emails and cart resurrection
-* Blocks dependency updates
+= 6.3 =
+* Adds support for product variation ids on pixel
