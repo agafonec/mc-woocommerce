@@ -379,7 +379,7 @@ class MailChimp_Service extends MailChimp_WooCommerce_Options
                 // get user language or default to admin main language
                 $language = $this->user_language ?: substr(get_locale(), 0, 2);
 
-                $session_id = function_exists('WC') ? WC()->session->get_customer_id() : null;
+                $session_id = function_exists('WC') && WC()->session ? WC()->session->get_customer_id() : null;
 
                 // fire up the job handler
                 $handler = new MailChimp_WooCommerce_Cart_Update($uid, $user_email, $this->cart, $language, $session_id);
@@ -1046,7 +1046,7 @@ class MailChimp_Service extends MailChimp_WooCommerce_Options
 
         if (isset($_GET['mc_cid'])) {
             $campaign = sanitize_text_field( wp_unslash($_GET['mc_cid']));
-            if ( function_exists('WC') && $campaign) {
+            if ( function_exists('WC') && WC()->session && $campaign) {
                 WC()->session->set( 'mc_cid', $campaign );
             }
 
