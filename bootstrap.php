@@ -649,6 +649,32 @@ function mailchimp_handle_or_queue(Mailchimp_Woocommerce_Job $job, $delay = 0)
     }
 }
 
+
+function mailchimp_delete_job_by_id($id, $job_class = null)
+{
+    if (empty($id) || empty($job_class)) {
+        mailchimp_log('action_scheduler.delete_job_by_id', 'Failed to delete job by id', [
+            'job_id' => $id,
+            'job_class' => $job_class
+        ]);
+    } else {
+        try {
+            as_unschedule_action($job_class, array('obj_id' => $id), 'mc-woocommerce');
+
+            mailchimp_log('mailchim_delete_job_by_id', 'Successfully deleted job by id: ', [
+                'job_id' => $id,
+                'job_class' => $job_class
+            ]);
+        } catch (\Exception $e) {
+            mailchimp_log('action_scheduler.delete_job_by_id', 'Failed to delete job by id', [
+                'job_id' => $id,
+                'job_class' => $job_class,
+                'exception' => $e->getMessage()
+            ]);
+        }
+    }
+}
+
 /**
  * @param $job_hook
  *
